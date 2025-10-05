@@ -1,0 +1,30 @@
+# Render manifest for Quiz-App
+#
+# This file describes two services:
+#  - quiz-backend (Node web service)
+#  - quiz-frontend (Static site)
+#
+# IMPORTANT: Do NOT put secrets (MONGODB_URI, JWT_SECRET, etc.) in this file.
+# After connecting the repo in Render, add environment variables in the Render dashboard.
+
+services:
+  - type: web
+    name: quiz-backend
+    env: node
+    plan: free
+    repo: https://github.com/Chibaroshan2356/Quiz-App
+    branch: main
+    root: backend
+    # Install dependencies and run start in the backend folder explicitly.
+    # Using npm --prefix keeps commands safe when Render runs from repo root.
+    buildCommand: npm --prefix backend ci
+    startCommand: npm --prefix backend start
+
+  - type: static
+    name: quiz-frontend
+    plan: free
+    repo: https://github.com/Chibaroshan2356/Quiz-App
+    branch: main
+    root: frontend
+    buildCommand: npm install && npm run build
+    publish: build
