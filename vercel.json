@@ -4,22 +4,13 @@
     {
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
+      "config": { "distDir": "build" }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://your-backend-url.herokuapp.com/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "dest": "https://quiz-app-4v2w.onrender.com/api/$1"
     }
-  ],
-  "env": {
-    "REACT_APP_API_URL": "https://your-backend-url.herokuapp.com/api"
-  }
+  ]
 }
