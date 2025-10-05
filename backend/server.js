@@ -11,8 +11,18 @@ const server = http.createServer(app);
 let io = null;
 
 // Middleware
+// Allow multiple frontend origins via env (comma-separated) or single CLIENT_URL/FRONTEND_URL
+const rawAllowed = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3000';
+const allowedOrigins = rawAllowed.split(',').map(s => s && s.trim()).filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // allow requests with no origin (like curl, Postman, or same-origin requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Not allowed by CORS
+    return callback(new Error(`CORS policy: origin ${origin} is not allowed`));
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -62,7 +72,11 @@ try {
   const { Server } = require('socket.io');
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error('CORS error'));
+      },
       credentials: true
     }
   });
