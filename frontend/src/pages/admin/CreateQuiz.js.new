@@ -1,0 +1,921 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { quizAPI } from '../../services/api';
+import { 
+  FiPlus, 
+  FiTrash2, 
+  FiSave, 
+  FiArrowLeft, 
+  FiChevronDown, 
+  FiChevronUp,
+  FiClock,
+  FiHash,
+  FiCheck,
+  FiX,
+  FiAlertTriangle
+} from 'react-icons/fi';
+import { 
+  Container, 
+  Row, 
+  Col, 
+  Form, 
+  Button, 
+  Card, 
+  Badge, 
+  Alert, 
+  Spinner, 
+  InputGroup,
+  FormControl,
+  Dropdown,
+  ButtonGroup
+} from 'react-bootstrap';
+import AdminLayout from '../../components/layout/AdminLayout';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { toast } from 'react-hot-toast';
+import { FaRandom, FaListOl, FaRegQuestionCircle } from 'react-icons/fa';
+
+const difficultyOptions = [
+  { value: 'easy', label: 'Easy', color: 'success' },
+  { value: 'medium', label: 'Medium', color: 'warning' },
+  { value: 'hard', label: 'Hard', color: 'danger' }
+];
+
+const timeLimitOptions = [
+  { value: 5, label: '5 minutes' },
+  { value: 10, label: '10 minutes' },
+  { value: 15, label: '15 minutes' },
+  { value: 30, label: '30 minutes' },
+  { value: 45, label: '45 minutes' },
+  { value: 60, label: '1 hour' },
+  { value: 90, label: '1.5 hours' },
+  { value: 120, label: '2 hours' }
+];
+
+const CreateQuiz = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [loading, setLoading] = useState(!!id);
+  const [saving, setSaving] = useState(false);
+  const [activeQuestion, setActiveQuestion] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [categories, setCategories] = useState([]);
+  
+  const [quizData, setQuizData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    difficulty: 'medium',
+    timeLimit: 30,
+    isActive: true,
+    showCorrectAnswers: true,
+    randomizeQuestions: false,
+    randomizeAnswers: false,
+    passingScore: 70,
+    attempts: 0, // 0 for unlimited
+    questions: [
+      {
+        question: '',
+        options: ['', ''],
+        correctAnswer: 0,
+        explanation: '',
+        points: 1,
+        type: 'multiple_choice',
+        tags: []
+      }
+    ]
+  });
+
+  // Fetch quiz data if editing
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      if (!id) return;
+      
+      try {
+        const response = await quizAPI.get(`/quizzes/${id}`);
+        setQuizData(response.data);
+        // Ensure at least one question exists
+        if (response.data.questions.length === 0) {
+          setQuizData(prev => ({
+            ...prev,
+            questions: [{
+              question: '',
+              options: ['', ''],
+              correctAnswer: 0,
+              explanation: '',
+              points: 1,
+              type: 'multiple_choice',
+              tags: []
+            }]
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching quiz:', error);
+        toast.error('Failed to load quiz');
+        navigate('/admin/quizzes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuiz();
+  }, [id, navigate]);
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await quizAPI.get('/quizzes/categories');
+        setCategories(response.data);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const handleInputChange = (field, value) => {
+    setQuizData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleQuestionChange = (questionIndex, field, value) => {
+    setQuizData(prev => ({
+      ...prev,
+      questions: prev.questions.map((question, idx) =>
+        idx === questionIndex ? { ...question, [field]: value } : question
+      )
+    }));
+  };
+
+  const handleOptionChange = (questionIndex, optionIndex, value) => {
+    setQuizData(prev => ({
+      ...prev,
+      questions: prev.questions.map((question, idx) =>
+        idx === questionIndex
+          ? {
+              ...question,
+              options: question.options.map((option, optIdx) =>
+                optIdx === optionIndex ? value : option
+              )
+            }
+          : question
+      )
+    }));
+  };
+
+  const handleCorrectAnswerChange = (questionIndex, optionIndex) => {
+    setQuizData(prev => ({
+      ...prev,
+      questions: prev.questions.map((question, idx) =>
+        idx === questionIndex
+          ? { ...question, correctAnswer: optionIndex }
+          : question
+      )
+    }));
+  };
+
+  const addOption = (questionIndex) => {
+    setQuizData(prev => ({
+      ...prev,
+      questions: prev.questions.map((question, idx) =>
+        idx === questionIndex
+          ? {
+              ...question,
+              options: [...question.options, '']
+            }
+          : question
+      )
+    }));
+  };
+
+  const removeOption = (questionIndex, optionIndex) => {
+    const question = quizData.questions[questionIndex];
+    if (question.options.length <= 2) {
+      toast.error('A question must have at least 2 options');
+      return;
+    }
+
+    setQuizData(prev => {
+      const newQuestions = [...prev.questions];
+      const newOptions = [...newQuestions[questionIndex].options];
+      newOptions.splice(optionIndex, 1);
+      
+      // Adjust correct answer index if needed
+      let newCorrectAnswer = newQuestions[questionIndex].correctAnswer;
+      if (newCorrectAnswer >= optionIndex && newCorrectAnswer > 0) {
+        newCorrectAnswer--;
+      } else if (newCorrectAnswer === optionIndex) {
+        newCorrectAnswer = 0; // Default to first option if correct answer was removed
+      }
+
+      newQuestions[questionIndex] = {
+        ...newQuestions[questionIndex],
+        options: newOptions,
+        correctAnswer: newCorrectAnswer
+      };
+
+      return {
+        ...prev,
+        questions: newQuestions
+      };
+    });
+  };
+
+  const addQuestion = () => {
+    const newQuestion = {
+      question: '',
+      options: ['', ''],
+      correctAnswer: 0,
+      explanation: '',
+      points: 1,
+      type: 'multiple_choice',
+      tags: []
+    };
+
+    setQuizData(prev => ({
+      ...prev,
+      questions: [...prev.questions, newQuestion]
+    }));
+    
+    // Scroll to the new question
+    setTimeout(() => {
+      const questions = document.querySelectorAll('.question-card');
+      if (questions.length > 0) {
+        questions[questions.length - 1].scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
+  const removeQuestion = (questionIndex) => {
+    if (quizData.questions.length <= 1) {
+      toast.error('A quiz must have at least one question');
+      return;
+    }
+
+    if (window.confirm('Are you sure you want to remove this question?')) {
+      setQuizData(prev => ({
+        ...prev,
+        questions: prev.questions.filter((_, idx) => idx !== questionIndex)
+      }));
+      
+      // Adjust active question if needed
+      if (activeQuestion >= questionIndex && activeQuestion > 0) {
+        setActiveQuestion(prev => prev - 1);
+      }
+    }
+  };
+
+  const validateQuiz = () => {
+    // Validate basic quiz info
+    if (!quizData.title.trim()) {
+      toast.error('Quiz title is required');
+      document.getElementById('quiz-title')?.focus();
+      return false;
+    }
+    
+    if (!quizData.category.trim()) {
+      toast.error('Quiz category is required');
+      document.getElementById('quiz-category')?.focus();
+      return false;
+    }
+
+    // Validate questions
+    for (let i = 0; i < quizData.questions.length; i++) {
+      const q = quizData.questions[i];
+      
+      if (!q.question.trim()) {
+        toast.error(`Question ${i + 1}: Question text is required`);
+        setActiveQuestion(i);
+        return false;
+      }
+      
+      // Check for empty options
+      const emptyOptions = q.options.filter(opt => !opt.trim());
+      if (emptyOptions.length > 0) {
+        toast.error(`Question ${i + 1}: All options must be filled`);
+        setActiveQuestion(i);
+        return false;
+      }
+      
+      // Check for duplicate options
+      const uniqueOptions = new Set(q.options.map(opt => opt.trim().toLowerCase()));
+      if (uniqueOptions.size < q.options.length) {
+        toast.error(`Question ${i + 1}: Duplicate options are not allowed`);
+        setActiveQuestion(i);
+        return false;
+      }
+      
+      // Check if correct answer is set
+      if (q.correctAnswer === null || q.correctAnswer === undefined) {
+        toast.error(`Question ${i + 1}: Please select the correct answer`);
+        setActiveQuestion(i);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateQuiz()) return;
+    
+    setSaving(true);
+    
+    try {
+      if (id) {
+        await quizAPI.put(`/quizzes/${id}`, quizData);
+        toast.success('Quiz updated successfully');
+      } else {
+        await quizAPI.post('/quizzes', quizData);
+        toast.success('Quiz created successfully');
+      }
+      
+      navigate('/admin/quizzes');
+    } catch (error) {
+      console.error('Error saving quiz:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to save quiz';
+      toast.error(errorMessage);
+      
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  const handleSaveDraft = async () => {
+    if (!quizData.title.trim()) {
+      toast.error('Quiz title is required');
+      return;
+    }
+    
+    setSaving(true);
+    
+    try {
+      const dataToSave = {
+        ...quizData,
+        isActive: false
+      };
+      
+      if (id) {
+        await quizAPI.put(`/quizzes/${id}`, dataToSave);
+        toast.success('Draft saved successfully');
+      } else {
+        await quizAPI.post('/quizzes', dataToSave);
+        toast.success('Draft created successfully');
+      }
+      
+      navigate('/admin/quizzes');
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      toast.error(error.response?.data?.message || 'Failed to save draft');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <Container className="py-5">
+          <Row className="justify-content-center">
+            <Col md={8} className="text-center">
+              <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+                <div>
+                  <Spinner animation="border" variant="primary" className="mb-3" />
+                  <h4>Loading quiz data...</h4>
+                  <p className="text-muted">Please wait while we load your quiz</p>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Container>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout>
+      <Container fluid className="p-4">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+          <div className="d-flex align-items-center mb-3 mb-md-0">
+            <Button 
+              variant="outline-secondary" 
+              size="sm" 
+              className="me-3 d-flex align-items-center"
+              onClick={() => navigate('/admin/quizzes')}
+            >
+              <FiArrowLeft className="me-1" /> Back
+            </Button>
+            <div>
+              <h2 className="mb-0">{id ? 'Edit Quiz' : 'Create New Quiz'}</h2>
+              <p className="text-muted small mb-0">
+                {id ? 'Update your quiz details and questions' : 'Create a new quiz with multiple choice questions'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="d-flex gap-2">
+            <Button 
+              variant="outline-secondary" 
+              onClick={handleSaveDraft}
+              disabled={saving || !quizData.title.trim()}
+            >
+              {saving ? (
+                <Spinner as="span" size="sm" animation="border" className="me-1" />
+              ) : (
+                <FiSave className="me-1" />
+              )}
+              Save as Draft
+            </Button>
+            
+            <Button 
+              variant="primary" 
+              onClick={handleSubmit}
+              disabled={saving}
+            >
+              {saving ? (
+                <Spinner as="span" size="sm" animation="border" className="me-1" />
+              ) : (
+                <FiCheck className="me-1" />
+              )}
+              {id ? 'Update Quiz' : 'Publish Quiz'}
+            </Button>
+          </div>
+        </div>
+        
+        <Row className="g-4">
+          {/* Left Sidebar - Questions List */}
+          <Col md={4} lg={3}>
+            <Card className="sticky-top" style={{ top: '1rem' }}>
+              <Card.Header className="bg-white border-bottom">
+                <h5 className="mb-0 d-flex align-items-center">
+                  <FiListOl className="me-2" />
+                  Questions
+                  <Badge bg="primary" className="ms-2">
+                    {quizData.questions.length}
+                  </Badge>
+                </h5>
+              </Card.Header>
+              <Card.Body className="p-0">
+                <div className="list-group list-group-flush">
+                  {quizData.questions.map((q, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${
+                        activeQuestion === idx ? 'active' : ''
+                      }`}
+                      onClick={() => setActiveQuestion(idx)}
+                    >
+                      <div className="d-flex align-items-center">
+                        <div className="me-2">
+                          {q.question ? (
+                            <span className="text-truncate d-block" style={{ maxWidth: '180px' }}>
+                              {q.question.length > 30 ? `${q.question.substring(0, 30)}...` : q.question}
+                            </span>
+                          ) : (
+                            <span className="text-muted">Question {idx + 1}</span>
+                          )}
+                        </div>
+                        {!q.question.trim() && (
+                          <span className="badge bg-warning text-dark">Incomplete</span>
+                        )}
+                      </div>
+                      <span className="badge bg-primary rounded-pill">{q.points} pts</span>
+                    </button>
+                  ))}
+                  
+                  <button
+                    type="button"
+                    className="list-group-item list-group-item-action text-center text-primary"
+                    onClick={addQuestion}
+                  >
+                    <FiPlus className="me-1" /> Add Question
+                  </button>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+          
+          {/* Main Content - Quiz Editor */}
+          <Col md={8} lg={9}>
+            <Form onSubmit={handleSubmit}>
+              {/* Quiz Settings Card */}
+              <Card className="mb-4 border-0 shadow-sm">
+                <Card.Header className="bg-white">
+                  <h5 className="mb-0">Quiz Settings</h5>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={8}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Quiz Title <span className="text-danger">*</span></Form.Label>
+                        <Form.Control
+                          id="quiz-title"
+                          type="text"
+                          placeholder="Enter quiz title"
+                          value={quizData.title}
+                          onChange={(e) => handleInputChange('title', e.target.value)}
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+                    
+                    <Col md={4}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Time Limit</Form.Label>
+                        <Dropdown>
+                          <Dropdown.Toggle 
+                            variant="outline-secondary" 
+                            className="w-100 text-start d-flex align-items-center justify-content-between"
+                            id="time-limit-dropdown"
+                          >
+                            <span>
+                              <FiClock className="me-2" />
+                              {timeLimitOptions.find(opt => opt.value === quizData.timeLimit)?.label || `${quizData.timeLimit} minutes`}
+                            </span>
+                          </Dropdown.Toggle>
+                          <Dropdown.Menu className="w-100">
+                            {timeLimitOptions.map((option) => (
+                              <Dropdown.Item 
+                                key={option.value}
+                                onClick={() => handleInputChange('timeLimit', option.value)}
+                                active={quizData.timeLimit === option.value}
+                              >
+                                {option.label}
+                              </Dropdown.Item>
+                            ))}
+                          </Dropdown.Menu>
+                        </Dropdown>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                  
+                  <Row>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Category <span className="text-danger">*</span></Form.Label>
+                        <div className="position-relative">
+                          <Form.Control
+                            id="quiz-category"
+                            type="text"
+                            list="categories-list"
+                            placeholder="Select or enter a category"
+                            value={quizData.category}
+                            onChange={(e) => handleInputChange('category', e.target.value)}
+                            required
+                          />
+                          <datalist id="categories-list">
+                            {categories.map((cat, index) => (
+                              <option key={index} value={cat} />
+                            ))}
+                          </datalist>
+                        </div>
+                      </Form.Group>
+                    </Col>
+                    
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Difficulty</Form.Label>
+                        <div className="d-flex gap-2">
+                          {difficultyOptions.map((diff) => (
+                            <Button
+                              key={diff.value}
+                              variant={quizData.difficulty === diff.value ? diff.color : `outline-${diff.color}`}
+                              className="flex-grow-1 d-flex align-items-center justify-content-center"
+                              onClick={() => handleInputChange('difficulty', diff.value)}
+                              type="button"
+                            >
+                              {diff.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                  
+                  <Form.Group className="mb-3">
+                    <Form.Label>Description</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      placeholder="Enter a brief description of the quiz"
+                      value={quizData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                    />
+                    <Form.Text className="text-muted">
+                      This will be shown to users before they start the quiz.
+                    </Form.Text>
+                  </Form.Group>
+                  
+                  <Button 
+                    variant="link" 
+                    className="p-0 d-flex align-items-center"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    type="button"
+                  >
+                    {showAdvanced ? (
+                      <>
+                        <FiChevronUp className="me-1" /> Hide Advanced Settings
+                      </>
+                    ) : (
+                      <>
+                        <FiChevronDown className="me-1" /> Show Advanced Settings
+                      </>
+                    )}
+                  </Button>
+                  
+                  {showAdvanced && (
+                    <div className="mt-3 p-3 bg-light rounded">
+                      <Row>
+                        <Col md={6}>
+                          <Form.Group className="mb-3">
+                            <Form.Check
+                              type="switch"
+                              id="randomize-questions"
+                              label="Randomize Questions"
+                              checked={quizData.randomizeQuestions}
+                              onChange={(e) => handleInputChange('randomizeQuestions', e.target.checked)}
+                            />
+                            <Form.Text className="text-muted">
+                              Questions will appear in a random order for each attempt
+                            </Form.Text>
+                          </Form.Group>
+                          
+                          <Form.Group className="mb-3">
+                            <Form.Check
+                              type="switch"
+                              id="randomize-answers"
+                              label="Randomize Answers"
+                              checked={quizData.randomizeAnswers}
+                              onChange={(e) => handleInputChange('randomizeAnswers', e.target.checked)}
+                            />
+                            <Form.Text className="text-muted">
+                              Answer choices will be shuffled for each question
+                            </Form.Text>
+                          </Form.Group>
+                        </Col>
+                        
+                        <Col md={6}>
+                          <Form.Group className="mb-3">
+                            <Form.Check
+                              type="switch"
+                              id="show-correct-answers"
+                              label="Show Correct Answers"
+                              checked={quizData.showCorrectAnswers}
+                              onChange={(e) => handleInputChange('showCorrectAnswers', e.target.checked)}
+                            />
+                            <Form.Text className="text-muted">
+                              Show which answers were correct after submission
+                            </Form.Text>
+                          </Form.Group>
+                          
+                          <Form.Group>
+                            <Form.Label>Passing Score (%)</Form.Label>
+                            <InputGroup style={{ maxWidth: '150px' }}>
+                              <FormControl
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={quizData.passingScore}
+                                onChange={(e) => handleInputChange('passingScore', parseInt(e.target.value) || 0)}
+                              />
+                              <InputGroup.Text>%</InputGroup.Text>
+                            </InputGroup>
+                            <Form.Text className="text-muted">
+                              Minimum score required to pass the quiz
+                            </Form.Text>
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                    </div>
+                  )}
+                </Card.Body>
+              </Card>
+              
+              {/* Current Question Editor */}
+              {quizData.questions.length > 0 && (
+                <Card className="mb-4 border-0 shadow-sm question-card">
+                  <Card.Header className="bg-white d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0">
+                      Question {activeQuestion + 1} of {quizData.questions.length}
+                    </h5>
+                    <div>
+                      <ButtonGroup size="sm">
+                        <Button
+                          variant="outline-secondary"
+                          onClick={() => removeQuestion(activeQuestion)}
+                          disabled={quizData.questions.length <= 1}
+                          title="Delete question"
+                        >
+                          <FiTrash2 />
+                        </Button>
+                        <Button
+                          variant="outline-primary"
+                          onClick={() => {
+                            const newQuestions = [...quizData.questions];
+                            newQuestions.splice(activeQuestion + 1, 0, {
+                              ...quizData.questions[activeQuestion],
+                              question: '',
+                              options: ['', ''],
+                              correctAnswer: 0
+                            });
+                            setQuizData({ ...quizData, questions: newQuestions });
+                            setActiveQuestion(activeQuestion + 1);
+                          }}
+                          title="Duplicate question"
+                        >
+                          <FaRandom />
+                        </Button>
+                      </ButtonGroup>
+                    </div>
+                  </Card.Header>
+                  <Card.Body>
+                    <Form.Group className="mb-4">
+                      <Form.Label>Question Text <span className="text-danger">*</span></Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        placeholder="Enter your question here"
+                        value={quizData.questions[activeQuestion].question}
+                        onChange={(e) => 
+                          handleQuestionChange(activeQuestion, 'question', e.target.value)
+                        }
+                        className="mb-2"
+                      />
+                      <Form.Text className="text-muted">
+                        You can use markdown for formatting
+                      </Form.Text>
+                    </Form.Group>
+                    
+                    <Form.Group className="mb-4">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <Form.Label className="mb-0">
+                          Answer Options <span className="text-danger">*</span>
+                        </Form.Label>
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm"
+                          onClick={() => addOption(activeQuestion)}
+                          disabled={quizData.questions[activeQuestion].options.length >= 6}
+                        >
+                          <FiPlus className="me-1" /> Add Option
+                        </Button>
+                      </div>
+                      
+                      {quizData.questions[activeQuestion].options.map((option, optionIndex) => (
+                        <div 
+                          key={optionIndex} 
+                          className={`d-flex align-items-start mb-2 p-2 rounded ${
+                            quizData.questions[activeQuestion].correctAnswer === optionIndex 
+                              ? 'bg-light border border-success' 
+                              : 'bg-light'
+                          }`}
+                        >
+                          <Button
+                            variant={quizData.questions[activeQuestion].correctAnswer === optionIndex ? 'success' : 'outline-secondary'}
+                            size="sm"
+                            className="me-2 flex-shrink-0 mt-1"
+                            onClick={() => handleCorrectAnswerChange(activeQuestion, optionIndex)}
+                            title="Mark as correct answer"
+                          >
+                            {quizData.questions[activeQuestion].correctAnswer === optionIndex ? (
+                              <FiCheck size={16} />
+                            ) : (
+                              <span style={{ width: '16px', display: 'inline-block' }}></span>
+                            )}
+                          </Button>
+                          
+                          <Form.Control
+                            type="text"
+                            placeholder={`Option ${optionIndex + 1}`}
+                            value={option}
+                            onChange={(e) => 
+                              handleOptionChange(activeQuestion, optionIndex, e.target.value)
+                            }
+                            className="flex-grow-1 me-2"
+                          />
+                          
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="flex-shrink-0 mt-1"
+                            onClick={() => removeOption(activeQuestion, optionIndex)}
+                            disabled={quizData.questions[activeQuestion].options.length <= 2}
+                            title="Remove option"
+                          >
+                            <FiX size={16} />
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {quizData.questions[activeQuestion].options.length < 2 && (
+                        <Alert variant="warning" className="mt-2">
+                          <FiAlertTriangle className="me-1" />
+                          At least 2 options are required for each question.
+                        </Alert>
+                      )}
+                    </Form.Group>
+                    
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>Points</Form.Label>
+                          <InputGroup style={{ maxWidth: '120px' }}>
+                            <FormControl
+                              type="number"
+                              min="1"
+                              value={quizData.questions[activeQuestion].points}
+                              onChange={(e) => 
+                                handleQuestionChange(
+                                  activeQuestion, 
+                                  'points', 
+                                  Math.max(1, parseInt(e.target.value) || 1)
+                                )
+                              }
+                            />
+                            <InputGroup.Text>pts</InputGroup.Text>
+                          </InputGroup>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                    
+                    <Form.Group>
+                      <Form.Label>Explanation (optional)</Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={2}
+                        placeholder="Explain why this is the correct answer"
+                        value={quizData.questions[activeQuestion].explanation}
+                        onChange={(e) => 
+                          handleQuestionChange(activeQuestion, 'explanation', e.target.value)
+                        }
+                      />
+                      <Form.Text className="text-muted">
+                        This will be shown to users after they complete the quiz.
+                      </Form.Text>
+                    </Form.Group>
+                  </Card.Body>
+                </Card>
+              )}
+              
+              {/* Action Buttons */}
+              <div className="d-flex justify-content-between">
+                <Button 
+                  variant="outline-secondary" 
+                  onClick={() => navigate('/admin/quizzes')}
+                  disabled={saving}
+                >
+                  <FiX className="me-1" /> Cancel
+                </Button>
+                
+                <div>
+                  <Button 
+                    variant="outline-primary" 
+                    className="me-2"
+                    onClick={addQuestion}
+                    disabled={saving || !quizData.questions[activeQuestion]?.question.trim()}
+                  >
+                    <FiPlus className="me-1" /> Add Another Question
+                  </Button>
+                  
+                  <Button 
+                    variant="primary"
+                    type="submit"
+                    disabled={
+                      saving || 
+                      !quizData.title.trim() || 
+                      !quizData.category.trim() ||
+                      !quizData.questions[activeQuestion]?.question.trim() ||
+                      quizData.questions.some(q => q.options.length < 2)
+                    }
+                  >
+                    {saving ? (
+                      <>
+                        <Spinner as="span" size="sm" animation="border" className="me-1" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <FiCheck className="me-1" />
+                        {id ? 'Update Quiz' : 'Publish Quiz'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Form>
+          </Col>
+        </Row>
+      </Container>
+    </AdminLayout>
+  );
+};
+
+export default CreateQuiz;

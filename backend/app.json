@@ -1,0 +1,52 @@
+{
+  "name": "quiz-backend",
+  "description": "Backend API for Quiz Application",
+  "repository": "https://github.com/yourusername/quiz-application",
+  "logo": "https://via.placeholder.com/150x150/3b82f6/ffffff?text=Quiz",
+  "keywords": ["quiz", "api", "express", "mongodb", "nodejs"],
+  "image": "heroku/nodejs",
+  "stack": "heroku-20",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment",
+      "value": "production"
+    },
+    "MONGODB_URI": {
+      "description": "MongoDB connection string",
+      "value": "mongodb://localhost:27017/quiz-app"
+    },
+    "JWT_SECRET": {
+      "description": "JWT secret key",
+      "generator": "secret"
+    },
+    "GOOGLE_CLIENT_ID": {
+      "description": "Google OAuth Client ID",
+      "value": ""
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "description": "Google OAuth Client Secret",
+      "value": ""
+    },
+    "CLIENT_URL": {
+      "description": "Frontend URL",
+      "value": "https://your-frontend-url.vercel.app"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "addons": [
+    {
+      "plan": "mongolab:sandbox",
+      "as": "MONGODB"
+    }
+  ]
+}
