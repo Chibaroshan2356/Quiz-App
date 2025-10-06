@@ -15,15 +15,23 @@ let io = null;
 const rawAllowed = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3000';
 const allowedOrigins = rawAllowed.split(',').map(s => s && s.trim()).filter(Boolean);
 
+// Always allow Vercel preview domains
+const isVercelPreview = (origin) => {
+  if (!origin) return false;
+  return origin.includes('vercel.app') || 
+         origin.includes('localhost') || 
+         allowedOrigins.includes(origin);
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like curl, Postman, or same-origin requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isVercelPreview(origin)) return callback(null, true);
     // Not allowed by CORS
     return callback(new Error(`CORS policy: origin ${origin} is not allowed`));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 app.use(cookieParser());
