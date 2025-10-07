@@ -1,6 +1,11 @@
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Debug: log the API base used at build/runtime
+try {
+  // eslint-disable-next-line no-console
+  console.info('[frontend] API_BASE_URL =', API_BASE_URL);
+} catch (e) {}
 
 // Simple in-memory GET cache and in-flight request deduper
 const getCache = new Map(); // key -> { expiry: number, data: any }
@@ -223,6 +228,7 @@ export const aiAPI = {
 };
 
 export default api;
+export { API_BASE_URL };
 // Socket client (lazy-imported to not break SSR)
 export async function getSocket() {
   const { io } = await import('socket.io-client');

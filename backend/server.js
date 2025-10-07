@@ -68,6 +68,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Debug endpoint - temporary: returns detected origin and allowed origins
+app.get('/api/_debug/cors', (req, res) => {
+  try {
+    const origin = req.get('origin') || null;
+    res.json({ originReceived: origin, allowedOrigins, FRONTEND_URL: process.env.FRONTEND_URL || process.env.CLIENT_URL || null });
+  } catch (e) {
+    res.status(500).json({ error: 'debug error', details: String(e) });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
