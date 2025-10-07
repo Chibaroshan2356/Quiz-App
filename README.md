@@ -308,7 +308,39 @@ npx playwright test
    - Check Node.js version compatibility
    - Verify all environment variables are set
 
-## 🤝 Contributing
+## � Local testing against deployed backend (quick)
+
+If Vercel preview protection blocks static files, you can run the frontend locally while pointing API calls to the deployed backend.
+
+1. Build & serve the frontend locally (PowerShell):
+
+```powershell
+./run-local-frontend.ps1 -ApiUrl "https://quiz-app-4v2w.onrender.com/api" -Port 3000
+```
+
+2. Open http://localhost:3000 in your browser. The frontend will load locally and call the deployed backend at the provided API URL.
+
+3. Useful quick checks (PowerShell):
+
+```powershell
+# Manifest (use local site; manifests are local files so this should not 401)
+curl.exe -I "http://localhost:3000/manifest.json"
+
+# Health check on deployed backend
+curl.exe -i "https://quiz-app-4v2w.onrender.com/api/health"
+
+# Preflight check
+curl.exe -i -X OPTIONS "https://quiz-app-4v2w.onrender.com/api/auth/login" `
+   -H "Origin: http://localhost:3000" `
+   -H "Access-Control-Request-Method: POST" `
+   -H "Access-Control-Request-Headers: Content-Type"
+```
+
+Notes:
+- This approach bypasses Vercel preview protection because you serve the frontend locally. Make sure `FRONTEND_URL` on your backend allows `http://localhost:3000` or our server currently allows localhost.
+- For full end-to-end testing (OAuth, cookies), prefer running the backend locally as well and set env variables accordingly.
+
+## �🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
