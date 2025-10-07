@@ -8,12 +8,16 @@ const router = express.Router();
 
 // Generate short-lived access token
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
+  const jwtSecret = process.env.JWT_SECRET || 'dev_jwt_secret';
+  if (!process.env.JWT_SECRET) console.warn('Warning: JWT_SECRET is not set. Using an insecure default. Set JWT_SECRET in your environment for production.');
+  return jwt.sign({ userId }, jwtSecret, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
 };
 
 // Generate long-lived refresh token
 const generateRefreshToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_EXPIRES_IN || '30d' });
+  const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'dev_jwt_refresh_secret';
+  if (!process.env.JWT_REFRESH_SECRET && !process.env.JWT_SECRET) console.warn('Warning: JWT_REFRESH_SECRET and JWT_SECRET are not set. Using insecure defaults.');
+  return jwt.sign({ userId }, refreshSecret, { expiresIn: process.env.REFRESH_EXPIRES_IN || '30d' });
 };
 
 const setRefreshCookie = (res, token) => {

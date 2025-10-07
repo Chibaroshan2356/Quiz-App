@@ -36,6 +36,9 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Ensure preflight OPTIONS requests are always handled and return CORS headers
+app.options('*', cors());
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
