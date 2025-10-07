@@ -39,6 +39,8 @@ router.post('/register', [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
   try {
+    // Debug: log incoming body
+    if (process.env.DEBUG === 'true') console.info('Register payload:', req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -81,7 +83,13 @@ router.post('/register', [
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    const debug = process.env.DEBUG === 'true';
+    const payload = { message: 'Server error during registration' };
+    if (debug) {
+      payload.error = String(error.message || error);
+      payload.stack = String(error.stack || '');
+    }
+    res.status(500).json(payload);
   }
 });
 
