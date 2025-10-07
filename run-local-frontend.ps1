@@ -9,6 +9,8 @@ param(
 Write-Host "Building frontend..."
 Push-Location frontend
 npm ci
+Write-Host "Setting REACT_APP_API_URL to $ApiUrl for build"
+$env:REACT_APP_API_URL = $ApiUrl
 npm run build
 Pop-Location
 
