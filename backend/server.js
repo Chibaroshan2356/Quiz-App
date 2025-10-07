@@ -17,7 +17,8 @@ const allowedOrigins = rawAllowed.split(',').map(s => s && s.trim()).filter(Bool
 
 // Always allow Vercel preview domains
 const isVercelPreview = (origin) => {
-  if (!origin) return false;
+  // Allow requests with no Origin header (curl, Postman, server-to-server, or some proxies)
+  if (!origin) return true;
   return origin.includes('vercel.app') || 
          origin.includes('localhost') || 
          allowedOrigins.includes(origin);
